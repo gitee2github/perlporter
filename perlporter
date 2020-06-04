@@ -43,6 +43,7 @@ perlporter [options] [file [...]]
    --epoch      -e      Epoch of package
    --disttag    -d      Disttag (defaults to %{?dist})
    --build      -b      Build source and binary rpms
+   --install    -b      Install the built package
    --cpan       -c      CPAN mirror URL
    --updatepkg  -u      update package info
    --spec       -s      create spec file
@@ -120,6 +121,9 @@ Build source and binary rpms from the generated spec file.
 B<Please be aware that this is likely to fail!>  Even if it succeeds,
 the generated rpm will almost certainly need some work to make
 rpmlint happy.
+
+=item B<-b>, B<--install>
+Install the pacakge built, this need to used combined with --build
 
 =item B<-c>, B<--cpan>
 
@@ -207,6 +211,7 @@ our $g_release=1;
 our $g_epoch;
 our $g_disttag='%{?dist}';
 our $g_buildrpm=0;
+our $g_install=0;
 our $g_create_spec=0;
 our $g_get_requires=0;
 our $verbose=0;
@@ -926,6 +931,7 @@ GetOptions(
         'epoch|e=i'         => \$g_epoch,
         'disttag|d=s'       => \$g_disttag,
         'build|b'           => \$g_buildrpm,
+        'install|i'         => \$g_install,
         'cpan|c=s'          => \$cpan,
         'spec|s'            => \$g_create_spec,
         'requires|q'        => \$g_get_requires,
@@ -1164,6 +1170,8 @@ for my $pkg (@args) {
 
     if ($g_buildrpm) {
             build_rpm($specfile);
+            if ($g_install) {
+            }
     }
 
     push(@processed, $module);
