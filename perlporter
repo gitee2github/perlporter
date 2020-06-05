@@ -598,7 +598,7 @@ sub get_license() {
 }
 
 sub get_docs($$) {
-    my @files = $_[0];
+    my @files = @{$_[0]};
     my $path = $_[1];
     my @doc=sort { $a cmp $b } grep {
                 !/\//
@@ -624,7 +624,7 @@ sub get_docs($$) {
             and $_ ne "install.sh"
             } @files;
 
-    return @doc
+    return \@doc
 }
 
 sub get_spec($) {
@@ -895,7 +895,7 @@ rm -rf $macro{buildroot}
 
 \%files
 \%defattr(-,root,root,-)
-\%doc $args{doc}
+\%doc @doc
 END
 
     if ($args{scripts}) {
@@ -1021,7 +1021,9 @@ for my $pkg (@args) {
 
     $summary="$module Perl module" if (!defined($summary));
 
-    my @doc = get_docs(\@files, $path);
+    my $doc_ref = get_docs(\@files, $path);
+    my @doc = @{$doc_ref};
+
 
 
     my $noarch=!grep /\.(c|h|xs|inl)$/i, @files;
