@@ -195,6 +195,8 @@ use File::Basename;
 use LWP::UserAgent;
 use Parse::CPAN::Packages;
 use Pod::Simple::TextContent;
+use Digest::MD5 qw(md5 md5_hex);
+use File::Spec::Functions 'catfile';
 # Apparently gets pulled in by another module.
 #use Cwd;
 
@@ -328,23 +330,39 @@ sub update_package_details() {
     $updated=1;
 }
 
-sub prepare_build_env() {
-        if (not -e $g_rootpath) {
-            print $g_rootpath . "does not exist\n";
-            exit;    
-        }
+sub prepare_build_env($) {
+    if (not -e $g_rootpath) {
+        print $g_rootpath . "does not exist\n";
+        exit;    
+    }
         
-        my $bpath = "$g_rootpath/srpm";
-        if (not -e $bpath) {
-            mkdir $bpath;
+    my $spath = "$g_rootpath/srpm";
+    if (not -e $spath) {
+        mkdir $spath;
+    }
+
+    my $bpath = "$g_rootpath/" . md5_hex($_[0]);
+    if (not -e $bpath) {
+       mkdir $bpath;
+    }       
+    
+    return $bpath, $spath;
+}
+
+sub do_pkg_install($) {
+    my @arch_path = qw(noarch/ x86_64/ aarch64/);
+    foreach my $path (@arch_path) {
+        my $bdir = catfile($_[0],  $path);
+        if (-e $bdir) {
+                $bdir = catfile($bdir, "*");
+                system("rpm", "-ivh", $bdir);
         }
-        
-        return $bpath;
+    }
 }
 
 sub build_rpm($) {
     my $spec=shift;
-    my $dir=prepare_build_env();
+    my ($bdir, $sdir) =prepare_build_env($spec);
 
     my $rpmbuild=(-x "/usr/bin/rpmbuild" ? "/usr/bin/rpmbuild" : "/bin/rpm");
 
@@ -352,9 +370,9 @@ sub build_rpm($) {
 
     # From Fedora CVS Makefile.common.
     if (system($rpmbuild, "--define", "_sourcedir $g_rootpath",
-                          "--define", "_builddir $g_rootpath",
-                          "--define", "_srcrpmdir $dir",
-                          "--define", "_rpmdir $g_rootpath",
+                          "--define", "_builddir $bdir",
+                          "--define", "_srcrpmdir $sdir",
+                          "--define", "_rpmdir $bdir",
                           ($g_buildrpm ? "-ba" : ("-bs", "--nodeps")),
                           $spec) != 0) {
         if ($? == -1) {
@@ -366,6 +384,8 @@ sub build_rpm($) {
             die "$rpmbuild exited with value " . WEXITSTATUS($?) . "\n";
         }
     }
+
+    return $bdir;
 }
 
 sub list_files($$) {
@@ -827,6 +847,7 @@ END
     print $spec <<END;
 
 \%build
+export PERL_MM_OPT=""
 END
 
     if ($args{bdpl}) {
@@ -851,6 +872,7 @@ END
     print $spec <<END;
 
 \%install
+export PERL_MM_OPT=""
 rm -rf $macro{buildroot}
 
 END
@@ -1171,8 +1193,9 @@ for my $pkg (@args) {
     }
 
     if ($g_buildrpm) {
-            build_rpm($specfile);
+            my $bdir = build_rpm($specfile);
             if ($g_install) {
+                do_pkg_install($bdir);
             }
     }
 
