@@ -43,6 +43,7 @@ perlporter [options] [file [...]]
    --epoch      -e      Epoch of package
    --disttag    -d      Disttag (defaults to %{?dist})
    --build      -b      Build source and binary rpms
+   --install    -b      Install the built package
    --cpan       -c      CPAN mirror URL
    --updatepkg  -u      update package info
    --spec       -s      create spec file
@@ -121,6 +122,9 @@ B<Please be aware that this is likely to fail!>  Even if it succeeds,
 the generated rpm will almost certainly need some work to make
 rpmlint happy.
 
+=item B<-b>, B<--install>
+Install the pacakge built, this need to used combined with --build
+
 =item B<-c>, B<--cpan>
 
 The URL to a CPAN mirror.  If not specified with this option or the
@@ -191,6 +195,8 @@ use File::Basename;
 use LWP::UserAgent;
 use Parse::CPAN::Packages;
 use Pod::Simple::TextContent;
+use Digest::MD5 qw(md5 md5_hex);
+use File::Spec::Functions 'catfile';
 # Apparently gets pulled in by another module.
 #use Cwd;
 
@@ -207,6 +213,7 @@ our $g_release=1;
 our $g_epoch;
 our $g_disttag='%{?dist}';
 our $g_buildrpm=0;
+our $g_install=0;
 our $g_create_spec=0;
 our $g_get_requires=0;
 our $verbose=0;
@@ -323,23 +330,39 @@ sub update_package_details() {
     $updated=1;
 }
 
-sub prepare_build_env() {
-        if (not -e $g_rootpath) {
-            print $g_rootpath . "does not exist\n";
-            exit;    
-        }
+sub prepare_build_env($) {
+    if (not -e $g_rootpath) {
+        print $g_rootpath . "does not exist\n";
+        exit;    
+    }
         
-        my $bpath = "$g_rootpath/srpm";
-        if (not -e $bpath) {
-            mkdir $bpath;
+    my $spath = "$g_rootpath/srpm";
+    if (not -e $spath) {
+        mkdir $spath;
+    }
+
+    my $bpath = "$g_rootpath/" . md5_hex($_[0]);
+    if (not -e $bpath) {
+       mkdir $bpath;
+    }       
+    
+    return $bpath, $spath;
+}
+
+sub do_pkg_install($) {
+    my @arch_path = qw(noarch/ x86_64/ aarch64/);
+    foreach my $path (@arch_path) {
+        my $bdir = catfile($_[0],  $path);
+        if (-e $bdir) {
+                $bdir = catfile($bdir, "*");
+                system("rpm", "-ivh", $bdir);
         }
-        
-        return $bpath;
+    }
 }
 
 sub build_rpm($) {
     my $spec=shift;
-    my $dir=prepare_build_env();
+    my ($bdir, $sdir) =prepare_build_env($spec);
 
     my $rpmbuild=(-x "/usr/bin/rpmbuild" ? "/usr/bin/rpmbuild" : "/bin/rpm");
 
@@ -347,9 +370,9 @@ sub build_rpm($) {
 
     # From Fedora CVS Makefile.common.
     if (system($rpmbuild, "--define", "_sourcedir $g_rootpath",
-                          "--define", "_builddir $g_rootpath",
-                          "--define", "_srcrpmdir $dir",
-                          "--define", "_rpmdir $g_rootpath",
+                          "--define", "_builddir $bdir",
+                          "--define", "_srcrpmdir $sdir",
+                          "--define", "_rpmdir $bdir",
                           ($g_buildrpm ? "-ba" : ("-bs", "--nodeps")),
                           $spec) != 0) {
         if ($? == -1) {
@@ -361,6 +384,8 @@ sub build_rpm($) {
             die "$rpmbuild exited with value " . WEXITSTATUS($?) . "\n";
         }
     }
+
+    return $bdir;
 }
 
 sub list_files($$) {
@@ -593,7 +618,7 @@ sub get_license() {
 }
 
 sub get_docs($$) {
-    my @files = $_[0];
+    my @files = @{$_[0]};
     my $path = $_[1];
     my @doc=sort { $a cmp $b } grep {
                 !/\//
@@ -619,7 +644,7 @@ sub get_docs($$) {
             and $_ ne "install.sh"
             } @files;
 
-    return @doc
+    return \@doc
 }
 
 sub get_spec($) {
@@ -822,6 +847,7 @@ END
     print $spec <<END;
 
 \%build
+export PERL_MM_OPT=""
 END
 
     if ($args{bdpl}) {
@@ -846,6 +872,7 @@ END
     print $spec <<END;
 
 \%install
+export PERL_MM_OPT=""
 rm -rf $macro{buildroot}
 
 END
@@ -890,7 +917,7 @@ rm -rf $macro{buildroot}
 
 \%files
 \%defattr(-,root,root,-)
-\%doc $args{doc}
+\%doc @doc
 END
 
     if ($args{scripts}) {
@@ -926,6 +953,7 @@ GetOptions(
         'epoch|e=i'         => \$g_epoch,
         'disttag|d=s'       => \$g_disttag,
         'build|b'           => \$g_buildrpm,
+        'install|i'         => \$g_install,
         'cpan|c=s'          => \$cpan,
         'spec|s'            => \$g_create_spec,
         'requires|q'        => \$g_get_requires,
@@ -1015,7 +1043,9 @@ for my $pkg (@args) {
 
     $summary="$module Perl module" if (!defined($summary));
 
-    my @doc = get_docs(\@files, $path);
+    my $doc_ref = get_docs(\@files, $path);
+    my @doc = @{$doc_ref};
+
 
 
     my $noarch=!grep /\.(c|h|xs|inl)$/i, @files;
@@ -1163,7 +1193,10 @@ for my $pkg (@args) {
     }
 
     if ($g_buildrpm) {
-            build_rpm($specfile);
+            my $bdir = build_rpm($specfile);
+            if ($g_install) {
+                do_pkg_install($bdir);
+            }
     }
 
     push(@processed, $module);
