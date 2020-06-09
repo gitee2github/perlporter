@@ -766,6 +766,7 @@ sub build_spec(%) {
     my @doc = @{$args{doc}};
 
     print $spec <<END;
+\%global _empty_manifest_terminate_build 0
 Name:           $g_prefix$args{name}
 Version:        $args{version}
 Release:        $g_release$g_disttag
@@ -828,24 +829,33 @@ END
 
     my $buildpath=$args{path};
     $buildpath=~s/$args{version}/\%{version}/;
-    print $spec <<END;
 
+    print $spec <<END;
 \%description
 $args{desc}
+END
 
+    print $spec <<END;
+\%package help
+Summary : $args{summary}
+Provides: $g_prefix$args{name}-doc
+\%description help
+$args{desc}
+END
+
+
+    print $spec <<END;
 \%prep
 \%setup -q@{[(" -n $buildpath")]}
 END
 
     if (grep { $_ eq "pm_to_blib" } $args{files}) {
         print $spec <<'END';
-
 rm -f pm_to_blib
 END
     }
 
     print $spec <<END;
-
 \%build
 export PERL_MM_OPT=""
 END
@@ -892,13 +902,26 @@ END
         print $spec <<END;
 find $macro{buildroot} -type f -name '*.bs' -size 0 -exec rm -f {} \\;
 END
-}
+    }
 
     print $spec <<END;
 find $macro{buildroot} -depth -type d -exec rmdir {} 2>/dev/null \\;
 
 \%{_fixperms} $macro{buildroot}/*
 
+END
+    
+    print $spec <<END;
+pushd \%{buildroot}
+touch filelist.lst
+if [ -d usr/bin ];then
+    find usr/bin -type f -printf "/\%h/\%f\\n" >> filelist.lst
+fi
+if [ -d usr/sbin ];then
+    find usr/bin -type f -printf "/\%h/\%f\\n" >> filelist.lst
+fi
+popd
+mv \%{buildroot}/filelist.lst .
 END
 
     print $spec <<END;
@@ -915,7 +938,7 @@ END
 \%clean
 rm -rf $macro{buildroot}
 
-\%files
+\%files -f filelist.lst
 \%defattr(-,root,root,-)
 \%doc @doc
 END
@@ -933,7 +956,11 @@ END
 
     my $date=strftime("%a %b %d %Y", localtime);
     print $spec <<END;
-\%{_mandir}/man3/*
+\%files help
+\%{_mandir}/*
+END
+
+    print $spec <<END;
 
 \%changelog
 * $date Perl_Bot <Perl_Bot\@openeuler.org> $args{version}-$g_release
