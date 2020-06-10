@@ -355,7 +355,13 @@ sub do_pkg_install($) {
         my $bdir = catfile($_[0],  $path);
         if (-e $bdir) {
                 $bdir = catfile($bdir, "*");
-                system("rpm", "-ivh", $bdir);
+                #
+                # Try to install without deps, that can help system to avoid
+                # circle build
+                #
+                if (system("rpm", "-ivh", "--nodeps", $bdir) != 0) {
+                     print "install $bdir package failed"
+                }
         }
     }
 }
@@ -569,14 +575,14 @@ sub get_module_info($) {
             $type=$1;
         } else {
             warn "Failed to parse '$file', skipping...\n";
-            next;
+            return (1, $name, $version, $type, $file);
         }
      } else {
-        warn "Failed to parse '$file' or find a module by that name, skipping...\n";
-        next;
+        warn "Failed to parse '$pkg' or find a module by that name, skipping...\n";
+        return (1, $name, $version, $type, $file);
      }
 
-     return ($name, $version, $type, $file);
+     return (0, $name, $version, $type, $file);
 }
 
 sub parse_archive_file($$) {
@@ -1027,8 +1033,14 @@ for my $pkg (@args) {
     # keep things happy if we get "Foo-Bar" instead of "Foo::Bar"
     $pkg =~ s/-/::/g;
 
-    my ($name,$version,$type, $file);
-    ($name, $version, $type, $file) = get_module_info($pkg);
+    my ($ret, $name,$version,$type, $file);
+    ($ret, $name, $version, $type, $file) = get_module_info($pkg);
+    #
+    # ugly but easy&works
+    #
+    if ($ret == 1) {
+            next;
+    }
 
     my $module=$name;
     $module=~s/-/::/g;
