@@ -926,6 +926,12 @@ fi
 if [ -d usr/sbin ];then
     find usr/bin -type f -printf "/\%h/\%f\\n" >> filelist.lst
 fi
+if [ -d usr/lib64 ];then
+    find usr/lib64 -type f -printf "/\%h/\%f\\n" >> filelist.lst
+fi
+if [ -d usr/lib ];then
+    find usr/lib -type f -printf "/\%h/\%f\\n" >> filelist.lst
+fi
 popd
 mv \%{buildroot}/filelist.lst .
 END
