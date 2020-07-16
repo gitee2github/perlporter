@@ -807,6 +807,14 @@ END
     for my $dep (keys(%reqs)) {
         $breqs{$dep}=$breqs{$dep} || $reqs{$dep};
     }
+   
+    #
+    # For most perl modules need generators, hard code here. 
+    # Can not use perl(generators) for the reason that this is 
+    # not a perl module, it provides some commands, need to use
+    # the native name of the packages
+    #
+    printf $spec "%-16s%s", "BuildRequires:", "perl-generators\n";
 
     for my $dep (sort(keys(%breqs))) {
         if (exists($corelist{$dep})) {
