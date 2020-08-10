@@ -211,7 +211,7 @@ our $help=0;
 our $compat=0;
 our $g_release=1;
 our $g_epoch;
-our $g_disttag='%{?dist}';
+our $g_disttag='';
 our $g_buildrpm=0;
 our $g_install=0;
 our $g_create_spec=0;
