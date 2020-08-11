@@ -786,7 +786,6 @@ License:        $args{license}
 Group:          Development/Libraries
 URL:            $args{url}
 Source0:        $g_source
-BuildRoot:      \%{_tmppath}/\%{name}-\%{version}-\%{release}-root-\%(\%{__id_u} -n)
 END
 
     printf $spec "%-16s%s\n", "BuildArch:", "noarch" if ($args{noarch});
