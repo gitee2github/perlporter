@@ -1,21 +1,42 @@
 # perlporter
 
-#### 介绍
+#### Description
 perl pacaking automation tool
 
 perlporter is derived from cpanspec tool, It helps to build perl modules to be rpm package automatically, It can be used to resolve the build dependencies of perl modules
 
-#### 软件架构
-This is a very simple tool, It's easy to understand how it works.
+#### Installation
+Install below software before using this tool
 
-#### 安装教程
+1.  yum install cpan
+2.  yum install perl
 
-#### 使用说明
+#### Preparation
+Execute the following command to complete the system configuration
+1.  sudo cpan
+2.  install Archive::Tar
+3.  install Archive::Zip
+4.  install Text::Autoformat
+5.  install Parse::CPAN::Packages
+#### Instructions
 
-#### 参与贡献
+perlporter is a tool to create spec file and create rpm for python modules
+For more details, please use perlporter -h
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+perlporter <package> -s -b -d -o python-<package>.spec
+
+#### Contribution
+
+1.  Fork the repository
+2.  Create Feat_xxx branch
+3.  Commit your code
+4.  Create Pull Request
+
+#### How to create a rpm file,Take perl-XXX as an example
+
+1.  Create spec file:              perlporter --spec XXX
+2.  The root path for rpm build:   perlporter --root XXX
+3.  Build and Install rpm package: perlporter -B XXX
+4.  For more detail:               perlporter -h
+
 
