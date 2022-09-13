@@ -10,20 +10,28 @@ Install below software before using this tool
 
 1.  yum install cpan
 2.  yum install perl
+3.  yum install perl-YAML
+4.  python3 setup.py install
 
 #### Preparation
 Execute the following command to complete the system configuration
+
 1.  sudo cpan
 2.  install Archive::Tar
 3.  install Archive::Zip
 4.  install Text::Autoformat
 5.  install Parse::CPAN::Packages
+
 #### Instructions
 
-perlporter is a tool to create spec file and create rpm for python modules
+perlporter is a tool to create spec file and create rpm for perl modules
 For more details, please use perlporter -h
 
-perlporter <package> -s -b -d -o python-<package>.spec
+Example: to generate spec file for perl-Clone:
+
+```
+perlporter -s Clone
+```
 
 #### Contribution
 
